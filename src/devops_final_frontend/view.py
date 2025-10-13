@@ -2,22 +2,54 @@ import io
 import zipfile
 from datetime import datetime
 
+import httpx
 import streamlit as st
 
 from devops_final_frontend.api import ApiService
 from devops_final_frontend.models import Api, Auth
 
+API_PARAMS = Api(**st.secrets["backend"])
+AUTH_PARAMS = Auth(**st.secrets["backend"]["auth"])
+API_AVAILABLE = ApiService.is_api_up(API_PARAMS)
+AUTH_AVAILABLE = ApiService.is_keycloak_up(AUTH_PARAMS)
+SERVICE_AVAILABLE = API_AVAILABLE and AUTH_AVAILABLE
+
+buf = io.BytesIO()
 st.set_page_config(page_title="App", layout="wide")
 
 
-API_PARAMS = Api(**st.secrets["backend"])
-AUTH_PARAMS = Auth(**st.secrets["backend"]["auth"])
-API_AVAILABLE = ApiService.get_api(API_PARAMS)
-AUTH_AVAILABLE = ApiService.is_keycloak_up(AUTH_PARAMS)
-SERVICE_AVAILABLE = API_AVAILABLE and AUTH_AVAILABLE 
+def init_download_buffer():
+    """
+    On page load, if the LLM generated a configuration, create a in-memory zip archive
+    of the docker compose file and env files which can be downloaded by the download button
+    """
+    if not st.session_state.get("docker-compose", {}):
+        return
+
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("compose.yml", st.session_state["docker-compose"])
+        for generated_env in st.session_state.get("envs", []):
+            zf.writestr(generated_env["title"], generated_env["body"])
+
+    buf.seek(0)
+
+
+def service_update(service_key, service_idx):
+    """
+    State change function for the dynamic service input list
+    """
+    st.session_state["services"][service_idx] = st.session_state[service_key]
+    st.session_state["last_empty"] = not bool(st.session_state.get("services", [""])[-1])
+    st.session_state["is_default"] = len(st.session_state.get("services")) == 1 and not bool(
+        st.session_state.get("services", [""])[0]
+    )
+
 
 
 def get_compose():
+    """
+    Invoke the API call and load the results into session state
+    """
     now = datetime.now()
     if st.user.get("exp", 0) < now.timestamp() or st.session_state["auth"]["access_exp"] < now:
         st.rerun()
@@ -29,7 +61,9 @@ def get_compose():
 
         try:
             result_data = ApiService.get_compose_get(api)
-        except Exception:
+        except KeyError as kerr:
+            st.error(f"Internal System Error - Key Error: {kerr}")
+        except httpx.HTTPError:
             st.error("Service failed to respond.")
             st.stop()
 
@@ -37,31 +71,13 @@ def get_compose():
             if result["type"] == 1:
                 st.session_state["docker-compose"] = result["data"]
             elif result["type"] == 2:
-                st.session_state["envs"].append({
-                    "title": result["name"],
-                    "body": result["data"]
-                })
-
-
-buf = io.BytesIO()
-def init_download_buffer():
-    if not st.session_state.get("docker-compose", {}):
-        return
-
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr('compose.yml', st.session_state['docker-compose'])
-        for env in st.session_state.get("envs", []):
-            zf.writestr(env["title"], env["body"])
-
-    buf.seek(0)
+                st.session_state["envs"].append({"title": result["name"], "body": result["data"]})
 
 
 header_left, header_right = st.columns([6, 1])
 with header_left:
     st.title("Devops Final - LLM Compose Generator")
-    st.write(
-        "Automate the creation of docker compose configurations using the power of LLM"
-    )
+    st.write("Automate the creation of docker compose configurations using the power of LLM")
 
     if not SERVICE_AVAILABLE:
         st.error("Service Temporarily Unavailable")
@@ -91,7 +107,7 @@ with header_right:
 if not st.session_state.get("auth"):
     try:
         st.session_state["auth"] = ApiService.get_token(AUTH_PARAMS).model_dump()
-    except Exception:
+    except httpx.HTTPError:
         st.error("Service Temporarily Unavailable")
         st.stop()
 
@@ -103,7 +119,7 @@ else:
     if st.session_state["auth"]["access_exp"] <= datetime.now():
         try:
             st.session_state["auth"] = ApiService.get_token(AUTH_PARAMS).model_dump()
-        except Exception:
+        except httpx.HTTPError:
             st.error("Service Temporarily Unavailable")
             st.stop()
     buf = io.BytesIO()
@@ -120,32 +136,33 @@ with services:
 
     if not st.session_state.get("network"):
         st.session_state["network"] = {"name": "", "exists": False}
-    
-    def service_update(key, idx):
-        st.session_state["services"][idx] = st.session_state[key]
-        st.session_state["last_empty"] = not bool(st.session_state.get("services", [""])[-1])
-        st.session_state["is_default"] = len(st.session_state.get("services")) == 1 and not bool(st.session_state.get("services", [""])[0])
-    
+
     for i in range(len(st.session_state.get("services")) - 1, 1, -1):
         if not st.session_state["services"][i] and not st.session_state["services"][i - 1]:
             st.session_state["services"].pop(i)
-    
+
     st.subheader("Input Services")
 
     buttons = st.columns([1, 1, 1, 1])
-    if  buttons[0].button("Clear", icon=":material/delete:",  disabled=st.session_state.get("is_default", True), width="stretch"):
+    if buttons[0].button(
+        "Clear", icon=":material/delete:", disabled=st.session_state.get("is_default", True), width="stretch"
+    ):
         st.session_state["services"] = [""]
         st.session_state["last_empty"] = not bool(st.session_state.get("services", [""])[-1])
         st.rerun()
 
-    if buttons[1].button("Add", icon=":material/add:", disabled=st.session_state.get("last_empty", True), width="stretch"):
+    if buttons[1].button(
+        "Add", icon=":material/add:", disabled=st.session_state.get("last_empty", True), width="stretch"
+    ):
         st.session_state["services"].append("")
         st.session_state["last_empty"] = not bool(st.session_state.get("services", [""])[-1])
         st.rerun()
 
-    if buttons[2].button("Generate", icon=":material/send:", disabled=st.session_state.get("last_empty", True), width="stretch"):
+    if buttons[2].button(
+        "Generate", icon=":material/send:", disabled=st.session_state.get("last_empty", True), width="stretch"
+    ):
         get_compose()
-    
+
     buttons[3].download_button(
         label="Download",
         icon=":material/download:",
@@ -153,36 +170,37 @@ with services:
         file_name="compose_export.zip",
         mime="application/zip",
         disabled=not st.session_state.get("docker-compose", {}),
-        width="stretch"
+        width="stretch",
     )
 
     st.session_state["network"]["name"] = services.text_input(
-        label="Docker Network",
-        help="Specify the Docker network to use for these services."
+        label="Docker Network", help="Specify the Docker network to use for these services."
     )
 
     toggles = services.columns([1, 1], gap=None)
     st.session_state["network"]["exists"] = toggles[0].toggle(
         label="Network Already Exists",
-        help="Enable if the network is already created and managed externally. Disable to create and manage a new network within this project.",
-        width="stretch"
+        help="Enable if the network is already created and managed externally. "
+            + "Disable to create and manage a new network within this project.",
+        width="stretch",
     )
     st.session_state["volume_mount"] = not toggles[1].toggle(
         label="Mount Volumes in Project Folder",
-        help="Enable to mount volumes inside this project's local directory. Disable to mount them in Docker's default volume directory.",
-        width="stretch"
+        help="Enable to mount volumes inside this project's local directory. "
+            + "Disable to mount them in Docker's default volume directory.",
+        width="stretch",
     )
 
     for idx, val in enumerate(st.session_state["services"]):
-        key=f"{idx}_{datetime.now().timestamp()}"
-        service = st.columns([7,1])
+        key = f"{idx}_{datetime.now().timestamp()}"
+        service = st.columns([7, 1])
         service[0].text_input(
             label=f"Service {idx+1}",
             value=val,
             key=f"svc_{key}",
             max_chars=64,
             on_change=service_update,
-            args=(f"svc_{key}", idx)
+            args=(f"svc_{key}", idx),
         )
         if service[1].button("❌", key=f"del_{key}"):
             st.session_state.services
