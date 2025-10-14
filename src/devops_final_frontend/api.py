@@ -18,7 +18,7 @@ class ApiService:
         """
         with httpx.Client(follow_redirects=True) as client:
             try:
-                client.get(f"{params.host}/")
+                client.get(f"{params.host}/version")
                 return True
             except httpx.HTTPError:
                 return False
@@ -46,7 +46,6 @@ class ApiService:
         params.body = {}
         params.token = raw_values["auth"]["access_token"]
         params.body["services"] = raw_values["services"]
-        params.body["project"] = "TODO"
         params.body["network_name"] = raw_values["network"]["name"]
         params.body["network_exists"] = raw_values["network"]["exists"]
         params.body["volume_mount"] = raw_values["volume_mount"]
