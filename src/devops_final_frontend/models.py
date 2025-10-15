@@ -20,6 +20,7 @@ class Auth(BaseModel):
     """
 
     host: str
+    aux_host: str
     realm: str
     username: str
     password: str

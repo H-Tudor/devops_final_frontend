@@ -6,16 +6,20 @@ import httpx
 import streamlit as st
 
 from devops_final_frontend.api import ApiService
-from devops_final_frontend.models import Api, Auth
+from devops_final_frontend.models import Api, Auth, Token
+
+st.set_page_config(page_title="App", layout="wide")
 
 API_PARAMS = Api(**st.secrets["backend"])
 AUTH_PARAMS = Auth(**st.secrets["backend"]["auth"])
-API_AVAILABLE = ApiService.is_api_up(API_PARAMS)
-AUTH_AVAILABLE = ApiService.is_keycloak_up(AUTH_PARAMS)
-SERVICE_AVAILABLE = API_AVAILABLE and AUTH_AVAILABLE
+TOKEN = Token(**st.session_state["auth"]) if "auth" in st.session_state else None
 
+api = ApiService(API_PARAMS, AUTH_PARAMS, TOKEN)
 buf = io.BytesIO()
-st.set_page_config(page_title="App", layout="wide")
+
+API_AVAILABLE = api.is_api_up()
+AUTH_AVAILABLE = api.is_keycloak_up()
+SERVICE_AVAILABLE = API_AVAILABLE and AUTH_AVAILABLE
 
 
 def init_download_buffer():
@@ -45,7 +49,6 @@ def service_update(service_key, service_idx):
     )
 
 
-
 def get_compose():
     """
     Invoke the API call and load the results into session state
@@ -55,12 +58,10 @@ def get_compose():
         st.rerun()
 
     with st.spinner("LLM generation in progress, please wait", show_time=True):
-        api = API_PARAMS.model_copy()
-        api.body = st.session_state
         st.session_state["envs"] = []
 
         try:
-            result_data = ApiService.get_compose_get(api)
+            result_data = api.get_compose_get(st.session_state)
         except KeyError as kerr:
             st.error(f"Internal System Error - Key Error: {kerr}")
         except httpx.HTTPError:
@@ -104,21 +105,23 @@ with header_right:
         st.stop()
 
 # APP backend auth
-if not st.session_state.get("auth"):
+if not TOKEN:
     try:
-        st.session_state["auth"] = ApiService.get_token(AUTH_PARAMS).model_dump()
+        st.session_state["auth"] = api.get_token().model_dump()
+        st.rerun()
     except httpx.HTTPError:
         st.error("Service Temporarily Unavailable")
         st.stop()
 
 else:
-    if st.session_state["auth"]["refresh_exp"] <= datetime.now():
+    if TOKEN.refresh_exp <= datetime.now():
         del st.session_state["auth"]
         st.rerun()
 
-    if st.session_state["auth"]["access_exp"] <= datetime.now():
+    if TOKEN.access_exp <= datetime.now():
         try:
             st.session_state["auth"] = ApiService.get_token(AUTH_PARAMS).model_dump()
+            st.rerun()
         except httpx.HTTPError:
             st.error("Service Temporarily Unavailable")
             st.stop()
@@ -181,13 +184,13 @@ with services:
     st.session_state["network"]["exists"] = toggles[0].toggle(
         label="Network Already Exists",
         help="Enable if the network is already created and managed externally. "
-            + "Disable to create and manage a new network within this project.",
+        + "Disable to create and manage a new network within this project.",
         width="stretch",
     )
     st.session_state["volume_mount"] = not toggles[1].toggle(
         label="Mount Volumes in Project Folder",
         help="Enable to mount volumes inside this project's local directory. "
-            + "Disable to mount them in Docker's default volume directory.",
+        + "Disable to mount them in Docker's default volume directory.",
         width="stretch",
     )
 
@@ -195,7 +198,7 @@ with services:
         key = f"{idx}_{datetime.now().timestamp()}"
         service = st.columns([7, 1])
         service[0].text_input(
-            label=f"Service {idx+1}",
+            label=f"Service {idx + 1}",
             value=val,
             key=f"svc_{key}",
             max_chars=64,

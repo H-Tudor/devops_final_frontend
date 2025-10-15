@@ -7,74 +7,91 @@ from devops_final_frontend.models import Api, Auth, Token
 
 class ApiService:
     """
-    Utility Class that encapsulates api calls into service operations  
+    Utility Class that encapsulates backend api calls into service operations
     """
 
-    @staticmethod
-    def is_api_up(params: Api) -> bool:
+    def __init__(self, api: Api, auth: Auth, token: Token | None):
+        self.api: Api = api
+        self.auth: Auth = auth
+        self.token: Token | None = token
+        self.auth_url = f"{self.auth.host}/realms/{self.auth.realm}/protocol/openid-connect/token"
+
+    def is_api_up(self) -> bool:
         """
         Check if the LLM API is available by calling the root endpoint.
-        If connection cannot be established consider the api down 
+        If connection cannot be established consider the api down
+
+        Returns:
+            bool: whether or not the api is up
         """
+
         with httpx.Client(follow_redirects=True) as client:
             try:
-                client.get(f"{params.host}/version")
+                client.get(f"{self.api.host}/version")
                 return True
             except httpx.HTTPError:
                 return False
 
-    @staticmethod
-    def is_keycloak_up(params: Auth):
+    def is_keycloak_up(self) -> bool:
         """
         Check if the Keycloack Instance is available by calling the root endpoint.
-        If connection cannot be established consider the api down 
+        If connection cannot be established consider the api down
+
+        Returns:
+            bool: whether or not the api is up
         """
+
         with httpx.Client() as client:
             try:
-                client.get(f"{params.host}/health/ready", timeout=2)
+                r = client.get(f"{self.auth.aux_host}/health/ready", timeout=2)
+                r.raise_for_status()
                 return True
             except httpx.HTTPError:
                 return False
 
-    @staticmethod
-    def get_compose_get(params: Api) -> dict:
+    def get_compose_get(self, raw_values: dict[str, list[str] | str | bool]) -> list[dict[str, int | str]]:
         """
         Invoke the LLM Compose generation Endpoint
-        """
 
-        raw_values = params.body
-        params.body = {}
-        params.token = raw_values["auth"]["access_token"]
-        params.body["services"] = raw_values["services"]
-        params.body["network_name"] = raw_values["network"]["name"]
-        params.body["network_exists"] = raw_values["network"]["exists"]
-        params.body["volume_mount"] = raw_values["volume_mount"]
+        Args:
+            raw_values (dict[str, list[str] | str | bool]): the params as retrieved from session state
+
+        Returns:
+            list[dict[str, int|str]]: the LLM API response
+        """
 
         with httpx.Client(follow_redirects=True, timeout=180) as client:
             r = client.post(
-                f"{params.host}/{params.version}/gen/compose",
-                json=params.body,
-                headers={"Authorization": f"Bearer {params.token}"},
+                f"{self.api.host}/{self.api.version}/gen/compose",
+                headers={"Authorization": f"Bearer {self.token.access_token}"},
+                json={
+                    "services": raw_values["services"],
+                    "network_name": raw_values["network"]["name"],
+                    "network_exists": raw_values["network"]["exists"],
+                    "volume_mount": raw_values["volume_mount"],
+                },
             )
 
             r.raise_for_status()
             return r.json()
 
-    @staticmethod
-    def get_token(params: Auth) -> Token:
+    def get_token(self) -> Token:
         """
         Authenticate the streamlit app with the backend keycloak instance
+
+        Returns:
+            Token: the token retrieved from the backend auth provider
         """
 
         with httpx.Client() as client:
             r = client.post(
-                f"{params.host}/realms/{params.realm}/protocol/openid-connect/token",
+                self.auth_url,
                 data={
                     "grant_type": "password",
-                    "username": params.username,
-                    "password": params.password,
-                    "client_id": params.client_id,
-                    "client_secret": params.client_secret,
+                    "username": self.auth.username,
+                    "password": self.auth.password,
+                    "client_id": self.auth.client_id,
+                    "client_secret": self.auth.client_secret,
                 },
             )
 
@@ -87,20 +104,22 @@ class ApiService:
                 refresh_exp=datetime.now() + timedelta(seconds=data["refresh_expires_in"]),
             )
 
-    @staticmethod
-    def refresh_token(params: Auth, refresh_token: str):
+    def refresh_token(self) -> Token:
         """
         Refresh the app's token with the backend keycloak instance
+
+        Returns:
+            Token: the token retrieved from the backend auth provider
         """
 
         with httpx.Client() as client:
             r = client.post(
-                f"{params.host}/realms/{params.realm}/protocol/openid-connect/token",
+                self.auth_url,
                 data={
                     "grant_type": "refresh_token",
-                    "refresh_token": refresh_token,
-                    "client_id": params.client_id,
-                    "client_secret": params.client_secret,
+                    "refresh_token": self.token.refresh_token,
+                    "client_id": self.auth.client_id,
+                    "client_secret": self.auth.client_secret,
                 },
             )
 
