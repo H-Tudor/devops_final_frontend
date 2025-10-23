@@ -1,3 +1,8 @@
+"""DevOps Final Frontend - LLM Generator
+
+This is a minimalist frontend, written using Streamlit, for the project backend.
+"""
+
 import subprocess
 import sys
 from pathlib import Path

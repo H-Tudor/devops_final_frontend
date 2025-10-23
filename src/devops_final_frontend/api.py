@@ -1,4 +1,10 @@
+"""API Module
+
+An abstraction of the requests made externally
+"""
+
 from datetime import datetime, timedelta
+from typing import Any
 
 import httpx
 
@@ -49,16 +55,19 @@ class ApiService:
             except httpx.HTTPError:
                 return False
 
-    def get_compose_get(self, raw_values: dict[str, list[str] | str | bool]) -> list[dict[str, int | str]]:
+    def get_compose_get(self, raw_values: dict[str, Any]) -> list[dict[str, int | str]]:
         """
         Invoke the LLM Compose generation Endpoint
 
         Args:
-            raw_values (dict[str, list[str] | str | bool]): the params as retrieved from session state
+            raw_values (dict[str, Any]): the params as retrieved from session state
 
         Returns:
             list[dict[str, int|str]]: the LLM API response
         """
+
+        if not self.token:
+            raise httpx.HTTPError("No auth token")
 
         with httpx.Client(follow_redirects=True, timeout=180) as client:
             r = client.post(
@@ -111,6 +120,9 @@ class ApiService:
         Returns:
             Token: the token retrieved from the backend auth provider
         """
+
+        if not self.token:
+            raise httpx.HTTPError("No auth token")
 
         with httpx.Client() as client:
             r = client.post(

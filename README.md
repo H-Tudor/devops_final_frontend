@@ -15,7 +15,7 @@ This application heavily depends on the backend API and the associated auth prov
 
 ## Setup
 
-In terms of external software this application requires a backend instance of 
+In terms of external software this application requires a backend instance of
 the LLM generator API (with the appropriate keycloack instance) and a keycloack
 instance for the frontend with a realm with a confidential client setup with standard
 flow and user accounts for the intended audience
@@ -52,6 +52,45 @@ uv run streamlit run src/devops_final_frontend/view.py
 or you can use a convenience script
 
 ```sh
-uv run devops-final-frontend                          
+uv run devops-final-frontend
 ```
 
+## Testing
+
+Run the unit & integration tests using the following command:
+
+```sh
+uv pytest
+```
+
+The API is tested using schemathesis and during testing it requires an available keycloak instance
+and configured in settings a test_username and test_password
+
+## Developer Notes
+
+### PreCommit Strategy
+
+This repository is configured with a precommit configuration comprised of the following stages:
+
+Generic precommit checks:
+- trim trailing whitespace
+- fix end of files
+- check for added large files
+
+Code linting using
+- ruff check & format
+- mypy
+- pylint
+
+These linter cover not just the code but typing and docs too, thus ensuring the developer has documented their code.
+
+Automation of manual actions
+- running the unit tests using pytest, to ensure that when commiting a code change it is atomically functional
+- clearing the caches
+- exporting the requirements file if packages changed
+
+As a developer, in order to prevent commit failures, you should manually run these checks before commiting the code using
+
+```sh
+uv run pre-commit run --all-files
+```
