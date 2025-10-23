@@ -85,9 +85,6 @@ with header_left:
     st.title("Devops Final - LLM Compose Generator")
     st.write("Automate the creation of docker compose configurations using the power of LLM")
 
-    st.write(st.session_state)
-    st.write(st.user)
-
     if not SERVICE_AVAILABLE:
         st.error("Service Temporarily Unavailable")
         st.stop()

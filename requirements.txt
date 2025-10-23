@@ -151,6 +151,8 @@ pytest==8.4.2
 pytest-mock==3.15.1
 python-dateutil==2.9.0.post0
     # via pandas
+python-dotenv==1.1.1
+    # via devops-final-frontend
 pytz==2025.2
     # via pandas
 pyyaml==6.0.3
@@ -204,6 +206,7 @@ tomlkit==0.13.3
     # via pylint
 tornado==6.5.2
     # via streamlit
+types-toml==0.10.8.20240310
 typing-extensions==4.15.0
     # via
     #   altair
