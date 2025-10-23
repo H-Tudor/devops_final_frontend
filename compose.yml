@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16
+    env_file:
+      - .env.keycloak
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    networks:
+      - devops-final
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.2
+    container_name: devops-final-keycloak-2
+    command: ["start-dev", "--health-enabled=true", "--metrics-enabled=true"]
+    env_file:
+      - .env.keycloak
+    ports:
+      - 8080:8080
+      - 9000:9000
+    networks:
+      - devops-final
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  devops_final_backend:
+    image: tudor0h/devops_final_backend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.devops_final_backend
+    ports:
+      - 8000:80
+    networks:
+      - devops-final
+    depends_on:
+      - keycloak
+
+  devops_final_fronted:
+    image: tudor0h/devops_final_frontend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.devops_final_frontend
+    ports:
+      - 8501:8501
+    networks:
+      - devops-final
+    depends_on:
+      - keycloak
+      - devops_final_backend
+
+volumes:
+  keycloak-db-data:
+    external:
+      name: devops_final_backend_keycloak-db-data
+
+networks:
+  devops-final:
+    driver: bridge

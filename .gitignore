@@ -10,4 +10,8 @@ wheels/
 .venv
 .cache
 .env
+
+# Container Envs
+.env.keycloak
+.env.devops_final_backend
 .env.devops_final_frontend
