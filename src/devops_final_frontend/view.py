@@ -1,3 +1,8 @@
+"""View Module
+
+The user interface rendering using streamlit
+"""
+
 import io
 import zipfile
 from datetime import datetime
@@ -80,11 +85,15 @@ with header_left:
     st.title("Devops Final - LLM Compose Generator")
     st.write("Automate the creation of docker compose configurations using the power of LLM")
 
+    st.write(st.session_state)
+    st.write(st.user)
+
     if not SERVICE_AVAILABLE:
         st.error("Service Temporarily Unavailable")
         st.stop()
 
-    if st.user.get("is_logged_in", False) and st.user.get("exp", 0) < datetime.now().timestamp():
+    user_exp = int(st.user.get("exp") or 0)
+    if st.user.get("is_logged_in", False) and user_exp < datetime.now().timestamp():
         st.logout()
 
     if not st.user.get("is_logged_in", False):
@@ -120,7 +129,7 @@ else:
 
     if TOKEN.access_exp <= datetime.now():
         try:
-            st.session_state["auth"] = ApiService.get_token(AUTH_PARAMS).model_dump()
+            st.session_state["auth"] = api.get_token().model_dump()
             st.rerun()
         except httpx.HTTPError:
             st.error("Service Temporarily Unavailable")
@@ -140,7 +149,7 @@ with services:
     if not st.session_state.get("network"):
         st.session_state["network"] = {"name": "", "exists": False}
 
-    for i in range(len(st.session_state.get("services")) - 1, 1, -1):
+    for i in range(len(st.session_state.get("services", [])) - 1, 1, -1):
         if not st.session_state["services"][i] and not st.session_state["services"][i - 1]:
             st.session_state["services"].pop(i)
 
@@ -206,7 +215,6 @@ with services:
             args=(f"svc_{key}", idx),
         )
         if service[1].button("❌", key=f"del_{key}"):
-            st.session_state.services
             st.session_state["services"].pop(idx)
             st.rerun()
 
