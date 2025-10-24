@@ -18,20 +18,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
-      - name: Test with python ${{ matrix.python-version }}
+      - name: Ruff ${{ matrix.python-version }}
         run: uv run --frozen ruff check
 
-      - name: Test with python ${{ matrix.python-version }}
+      - name: Pylint ${{ matrix.python-version }}
         run: uv run --frozen pylint src/devops_final_frontend
 
-      - name: Test with python ${{ matrix.python-version }}
+      - name: MyPy ${{ matrix.python-version }}
         run: uv run --frozen mypy .
 
-      - name: Test with python ${{ matrix.python-version }}
-        run: uv run --frozen create-secrets-file
-
-      - name: Test with python ${{ matrix.python-version }}
-        run: uv run --frozen pytest
+      - name: Pytest ${{ matrix.python-version }}
+        run: uv run --frozen create-secrets-file && uv run --frozen pytest
         env:
           # this test env does contain dummy values as they are not used
           AUTH_REDIRECT_URI: http://frontend/callback
