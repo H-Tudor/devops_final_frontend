@@ -22,7 +22,7 @@ jobs:
         run: uv run --frozen ruff check
 
       - name: Test with python ${{ matrix.python-version }}
-        run: uv run --frozen pylint src/devops_final_backend
+        run: uv run --frozen pylint src/devops_final_frontend
 
       - name: Test with python ${{ matrix.python-version }}
         run: uv run --frozen mypy .
