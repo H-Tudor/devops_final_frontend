@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 devops-final-frontend = "devops_final_frontend:main"
+create-secrets-file = "devops_final_frontend.config:main"
 
 [dependency-groups]
 dev = [

@@ -28,6 +28,9 @@ jobs:
         run: uv run --frozen mypy .
 
       - name: Test with python ${{ matrix.python-version }}
+        run: uv run --frozen create-secrets-file
+
+      - name: Test with python ${{ matrix.python-version }}
         run: uv run --frozen pytest
         env:
           # this test env does contain dummy values as they are not used

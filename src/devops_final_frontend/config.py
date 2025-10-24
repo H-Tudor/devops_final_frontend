@@ -43,3 +43,10 @@ def create_secrets_file():
             },
             file,
         )
+
+
+def main():
+    """Create the secrets file for the CI pipeline"""
+
+    create_secrets_file()
+    print("ok")
