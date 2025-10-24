@@ -1,0 +1,48 @@
+name: CI Pipeline
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install the latest version of uv and set the python version
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Test with python ${{ matrix.python-version }}
+        run: uv run --frozen ruff check
+
+      - name: Test with python ${{ matrix.python-version }}
+        run: uv run --frozen pylint src/devops_final_backend
+
+      - name: Test with python ${{ matrix.python-version }}
+        run: uv run --frozen mypy .
+
+      - name: Test with python ${{ matrix.python-version }}
+        run: uv run --frozen pytest
+        env:
+          # this test env does contain dummy values as they are not used
+          AUTH_REDIRECT_URI: http://frontend/callback
+          AUTH_COOKIE_SECRET: secret
+          AUTH_KEYCLOAK_CLIENT_ID: app
+          AUTH_KEYCLOAK_CLIENT_SECRET: secret
+          AUTH_KEYCLOAK_SERVER_METADATA_URL: http://keycloak/metadata
+          AUTH_KEYCLOAK_CLIENT_KWARGS_PROMPT: login
+          BACKEND_HOST: http://api
+          BACKEND_VERSION: vNext
+          BACKEND_AUTH_HOST: http://keycloak
+          BACKEND_AUTH_AUX_HOST: http://keycloak
+          BACKEND_AUTH_REALM: realm
+          BACKEND_AUTH_USERNAME: app
+          BACKEND_AUTH_PASSWORD: password
+          BACKEND_AUTH_CLIENT_ID: app
+          BACKEND_AUTH_CLIENT_SECRET: secret
