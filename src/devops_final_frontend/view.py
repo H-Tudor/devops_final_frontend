@@ -10,7 +10,7 @@ from datetime import datetime
 import httpx
 import streamlit as st
 
-from devops_final_frontend.api import ApiService
+from devops_final_frontend.api import ApiService, ResponseType
 from devops_final_frontend.models import Api, Auth, Token
 
 st.set_page_config(page_title="App", layout="wide")
@@ -69,14 +69,15 @@ def get_compose():
             result_data = api.get_compose_get(st.session_state)
         except KeyError as kerr:
             st.error(f"Internal System Error - Key Error: {kerr}")
+            st.rerun()
         except httpx.HTTPError:
             st.error("Service failed to respond.")
-            st.stop()
+            st.rerun()
 
         for result in result_data:
-            if result["type"] == 1:
+            if result["type"] == ResponseType.COMPOSE_FILE.value:
                 st.session_state["docker-compose"] = result["data"]
-            elif result["type"] == 2:
+            elif result["type"] == ResponseType.ENV_FILE.value:
                 st.session_state["envs"].append({"title": result["name"], "body": result["data"]})
 
 
@@ -226,6 +227,11 @@ with results:
 
     with envs:
         st.subheader("Service Environment Files")
+        st.warning(
+            "AI Models might have deprecated knowledge, some configuration data such as environment variables"
+            "might be outdated, be sure to cross-reference the official documentation"
+        )
+
         for env in st.session_state.get("envs", []):
             st.write(env["title"])
             st.code(env["body"], language="ini")
