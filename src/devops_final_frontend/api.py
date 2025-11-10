@@ -52,14 +52,18 @@ class ApiService:
         Check if the Keycloack Instance is available by calling the root endpoint.
         If connection cannot be established consider the api down
 
+        For the management service on 9000, the health check path is '/health/ready'
+        but if you are using the base url, '/' is sufficient but it requires disabling
+        the raise for status since the root path leads to a chain of redirects
+
         Returns:
             bool: whether or not the api is up
         """
 
         with httpx.Client() as client:
             try:
-                r = client.get(f"{self.auth.aux_host}/health/ready", timeout=2)
-                r.raise_for_status()
+                client.get(self.auth.aux_host, timeout=2)
+                # r.raise_for_status()
                 return True
             except httpx.HTTPError:
                 return False
