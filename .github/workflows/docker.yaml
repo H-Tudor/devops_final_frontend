@@ -1,0 +1,85 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - .github
+      - Dockerfile
+      - pyproject.toml
+      - src/devops_final_frontend
+
+jobs:
+  docker_hub:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PAT }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/devpops_final_backend:latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/devpops_final_backend:${{ github.sha }}
+
+      # - name: Run Trivy vulnerability scanner
+      #   uses: aquasecurity/trivy-action@0.33.1
+      #   with:
+      #     image-ref: "${{ secrets.DOCKER_USERNAME }}/devpops_final_backend:${{ github.sha }}"
+      #     format: "table"
+      #     exit-code: "1"
+      #     ignore-unfixed: true
+      #     vuln-type: "os,library"
+      #     severity: "CRITICAL,HIGH"
+
+  google_artifact:
+    runs-on: ubuntu-latest
+    environment: main
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.LOCATION }}-docker.pkg.dev
+
+      - name: Build Docker image
+        run: |
+          IMAGE=${{ vars.LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ vars.REPOSITORY }}/${{ vars.IMAGE_NAME }}
+          docker build -t $IMAGE:${GITHUB_SHA::8} -t $IMAGE:latest .
+
+      - name: Push Docker image
+        run: |
+          IMAGE=${{ vars.LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ vars.REPOSITORY }}/${{ vars.IMAGE_NAME }}
+          docker push $IMAGE:${GITHUB_SHA::8}
+          docker push $IMAGE:latest
