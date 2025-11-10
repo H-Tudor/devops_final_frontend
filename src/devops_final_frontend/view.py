@@ -27,6 +27,27 @@ AUTH_AVAILABLE = api.is_keycloak_up()
 SERVICE_AVAILABLE = API_AVAILABLE and AUTH_AVAILABLE
 
 
+def backend_auth():
+    """Authenticate the frontend service with the backend API"""
+    if TOKEN:
+        if TOKEN.access_exp > datetime.now():
+            # No action needed
+            return
+
+        if TOKEN.refresh_exp <= datetime.now():
+            # No point in attempting a refresh
+            del st.session_state["auth"]
+            st.rerun()
+
+    try:
+        # If you have a token attempt a refresh, otherwise do an auth
+        st.session_state["auth"] = (api.refresh_token() if TOKEN else api.get_token()).model_dump()
+        st.rerun()
+    except httpx.HTTPError:
+        st.error("Service Temporarily Unavailable - failed backend auth")
+        st.stop()
+
+
 def init_download_buffer():
     """
     On page load, if the LLM generated a configuration, create a in-memory zip archive
@@ -87,7 +108,7 @@ with header_left:
     st.write("Automate the creation of docker compose configurations using the power of LLM")
 
     if not SERVICE_AVAILABLE:
-        st.error("Service Temporarily Unavailable")
+        st.error(f"Service Temporarily Unavailable - failed dependencies ({API_AVAILABLE}, {AUTH_AVAILABLE})")
         st.stop()
 
     user_exp = int(st.user.get("exp") or 0)
@@ -112,27 +133,8 @@ with header_right:
         st.stop()
 
 # APP backend auth
-if not TOKEN:
-    try:
-        st.session_state["auth"] = api.get_token().model_dump()
-        st.rerun()
-    except httpx.HTTPError:
-        st.error("Service Temporarily Unavailable")
-        st.stop()
-
-else:
-    if TOKEN.refresh_exp <= datetime.now():
-        del st.session_state["auth"]
-        st.rerun()
-
-    if TOKEN.access_exp <= datetime.now():
-        try:
-            st.session_state["auth"] = api.get_token().model_dump()
-            st.rerun()
-        except httpx.HTTPError:
-            st.error("Service Temporarily Unavailable")
-            st.stop()
-    buf = io.BytesIO()
+backend_auth()
+buf = io.BytesIO()
 
 
 st.divider()
