@@ -5,10 +5,10 @@ on:
     branches:
       - master
     paths:
-      - .github
+      - .github/**
       - Dockerfile
       - pyproject.toml
-      - src/devops_final_frontend
+      - src/devops_final_frontend/**
 
 jobs:
   docker_hub:
