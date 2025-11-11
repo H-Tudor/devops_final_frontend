@@ -118,7 +118,6 @@ with header_left:
     if not st.user.get("is_logged_in", False):
         st.subheader("Login Required")
         st.write("Currently this is a private system.")
-        st.write("In order to apply, contact admin at: compose@test.trakosoft.ro")
 
         if st.button("Log in"):
             st.login("keycloak")
