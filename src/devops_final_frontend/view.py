@@ -225,7 +225,7 @@ with results:
     with envs:
         st.subheader("Service Environment Files")
         st.warning(
-            "AI Models might have deprecated knowledge, some configuration data such as environment variables"
+            "AI Models might have deprecated knowledge, some configuration data such as environment variables "
             "might be outdated, be sure to cross-reference the official documentation"
         )
 
