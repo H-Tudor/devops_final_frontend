@@ -58,7 +58,7 @@ jobs:
     environment: main
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -91,7 +91,7 @@ jobs:
 
     steps:
       - name: Checkout infra repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
         with:
           repository: H-Tudor/${{ vars.INFRA_REPO }}
           ref: master
