@@ -30,6 +30,17 @@ class ApiService:
         self.auth: Auth = auth
         self.token: Token | None = token
         self.auth_url = f"{self.auth.host}/realms/{self.auth.realm}/protocol/openid-connect/token"
+        self.api_status = False
+        self.auth_status = False
+        self.status = False
+
+    def health_check(self) -> bool:
+        """Check Dependent APIS"""
+        self.api_status = self.is_api_up()
+        self.auth_status = self.is_keycloak_up()
+        self.status = self.api_status and self.auth_status
+
+        return self.status
 
     def is_api_up(self) -> bool:
         """
@@ -42,7 +53,7 @@ class ApiService:
 
         with httpx.Client(follow_redirects=True) as client:
             try:
-                client.get(f"{self.api.host}/version")
+                client.get(f"{self.api.host}/version", timeout=10)
                 return True
             except httpx.HTTPError:
                 return False
@@ -62,8 +73,7 @@ class ApiService:
 
         with httpx.Client() as client:
             try:
-                client.get(self.auth.aux_host, timeout=2)
-                # r.raise_for_status()
+                client.get(self.auth.aux_host, timeout=10)
                 return True
             except httpx.HTTPError:
                 return False
