@@ -22,10 +22,6 @@ TOKEN = Token(**st.session_state["auth"]) if "auth" in st.session_state else Non
 api = ApiService(API_PARAMS, AUTH_PARAMS, TOKEN)
 buf = io.BytesIO()
 
-API_AVAILABLE = api.is_api_up()
-AUTH_AVAILABLE = api.is_keycloak_up()
-SERVICE_AVAILABLE = API_AVAILABLE and AUTH_AVAILABLE
-
 
 def backend_auth():
     """Authenticate the frontend service with the backend API"""
@@ -107,8 +103,8 @@ with header_left:
     st.title("Devops Final - LLM Compose Generator")
     st.write("Automate the creation of docker compose configurations using the power of LLM")
 
-    if not SERVICE_AVAILABLE:
-        st.error(f"Service Temporarily Unavailable - failed dependencies ({API_AVAILABLE}, {AUTH_AVAILABLE})")
+    if not api.health_check():
+        st.error(f"Service Temporarily Unavailable - failed dependencies ({api.api_status}, {api.auth_status})")
         st.stop()
 
     user_exp = int(st.user.get("exp") or 0)
