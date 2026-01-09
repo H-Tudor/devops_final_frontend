@@ -50,7 +50,7 @@ const MAX_SERVICE_NAME = 64;
                 type="button"
                 class="ghost"
                 (click)="clearServices()"
-                [disabled]="servicesArray.length === 1 && !(servicesArray.at(0)?.value?.trim())"
+                [disabled]="servicesArray.length === 1 && !servicesArray.at(0).value.trim()"
               >
                 Clear
               </button>
