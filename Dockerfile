@@ -1,31 +1,22 @@
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
-
-RUN addgroup --system app
-RUN adduser --ingroup app app_user
+# Build Angular assets
+FROM node:20-alpine AS build
 
 WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend ./
+RUN npm run build -- --configuration production
 
-RUN chown -R app_user:app /app
-USER app_user
+# Serve static build via nginx
+FROM nginx:1.27-alpine
 
-ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONUNBUFFERED=1
+COPY --from=build /app/dist/angular-frontend/browser /usr/share/nginx/html
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Add only what's needed
-COPY README.md ./README.md
-COPY src ./src
+EXPOSE 80
 
-# Install dependencies
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    --mount=type=bind,source=.python-version,target=.python-version \
-    uv sync --locked --no-dev --no-cache
+HEALTHCHECK CMD wget --spider -q http://localhost || exit 1
 
-EXPOSE 8501
-
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
-
-ENTRYPOINT ["devops-final-frontend", "--server.address=0.0.0.0"]
+ENTRYPOINT ["/entrypoint.sh"]

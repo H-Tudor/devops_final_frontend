@@ -1,96 +1,67 @@
-# DevOps Final Fronted - LLM Compose Generator
+# DevOps Final Frontend - LLM Compose Generator
 
-Transform a loose list of services in a full docker compose file with the power of AI
+Transform a loose list of services into a full docker-compose file with the power of AI.
 
 ## About
 
-This is a Streamlit-based Web-UI for the `devops-final-backend`, thus it contains
-the user interface as declarative python code with an abstracted websocket-based
-backend where the user state is stored as a temporary session state.
+The frontend is now an Angular single-page application. It mirrors the previous Streamlit UI while running entirely in the browser and communicating with the `devops-final-backend` and Keycloak.
 
-For more information on how streamlit works, see the [official documentation](https://docs.streamlit.io/)
+Runtime configuration (API host, Keycloak realm, and client credentials) is injected via `assets/config.js`. When running in a container, these values are generated from environment variables so you can point the UI to any backend without rebuilding.
 
-This application heavily depends on the backend API and the associated auth providers (keycloack instances) and such should they be unavailable the web interface will display a standard error
-"Service Temporarily Unavailable"
+## Prerequisites
 
-## Setup
+- Node.js 18+ and npm
+- Backend API and Keycloak instances reachable by the browser
 
-In terms of external software this application requires a backend instance of
-the LLM generator API (with the appropriate keycloack instance) and a keycloack
-instance for the frontend with a realm with a confidential client setup with standard
-flow and user accounts for the intended audience
+## Local development
 
-**Note**: keycloack allowes users to create their own accounts, but depending on the
-intended use-case, you might want to keep that option disabled (as per default)
-
-### 1. Install Dependencies
-
-```sh
-uv sync
+```bash
+cd frontend
+npm install
+npm start
 ```
 
-or
+The app runs on `http://localhost:4200`. Update `src/assets/config.js` if you need to change backend endpoints locally.
 
-```sh
-uv venv
-uv pip install r
+## Production build
+
+```bash
+cd frontend
+npm run build
 ```
 
-### 2. Setup secrets file
+The production build is emitted to `frontend/dist/angular-frontend/browser`.
 
-Within the `.streamlit` folder there is a template file called `secrets.toml.example`.
-Use the template to create `secrets.toml` and populate it with the appropiate values.
+## Container
 
-## Running the app
+The Dockerfile builds the Angular app and serves it through Nginx. At runtime you can configure the backend by setting environment variables:
 
-In order to run the app you have 2 options:
+- `API_HOST` (default: `http://localhost:8000`)
+- `API_VERSION` (default: `vNext`)
+- `AUTH_HOST` (default: `http://localhost:8080`)
+- `AUTH_REALM` (default: `devops-final`)
+- `AUTH_CLIENT_ID`
+- `AUTH_CLIENT_SECRET`
+- `AUTH_USERNAME`
+- `AUTH_PASSWORD`
 
-```sh
-uv run streamlit run src/devops_final_frontend/view.py
-```
+Example:
 
-or you can use a convenience script
-
-```sh
-uv run devops-final-frontend
+```bash
+docker build -t devops-final-frontend .
+docker run -p 8080:80 \
+  -e API_HOST=http://devops_final_backend:8000 \
+  -e AUTH_HOST=http://keycloak:8080 \
+  -e AUTH_REALM=devops \
+  -e AUTH_CLIENT_ID=frontend \
+  devops-final-frontend
 ```
 
 ## Testing
 
-Run the unit & integration tests using the following command:
+Run a production build to ensure the application compiles successfully:
 
-```sh
-uv pytest
-```
-
-The API is tested using schemathesis and during testing it requires an available keycloak instance
-and configured in settings a test_username and test_password
-
-## Developer Notes
-
-### PreCommit Strategy
-
-This repository is configured with a precommit configuration comprised of the following stages:
-
-Generic precommit checks:
-- trim trailing whitespace
-- fix end of files
-- check for added large files
-
-Code linting using
-- ruff check & format
-- mypy
-- pylint
-
-These linter cover not just the code but typing and docs too, thus ensuring the developer has documented their code.
-
-Automation of manual actions
-- running the unit tests using pytest, to ensure that when commiting a code change it is atomically functional
-- clearing the caches
-- exporting the requirements file if packages changed
-
-As a developer, in order to prevent commit failures, you should manually run these checks before commiting the code using
-
-```sh
-uv run pre-commit run --all-files
+```bash
+cd frontend
+npm run build
 ```

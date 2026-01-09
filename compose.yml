@@ -42,10 +42,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    env_file:
-      - ./compose/.env.devops_final_frontend
     ports:
-      - 8501:8501
+      - 8080:80
     networks:
       - devops-final
     depends_on:
